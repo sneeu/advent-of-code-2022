@@ -10,7 +10,6 @@ def character_score(c):
 
 
 def chunk(iter, size):
-    print(iter, size)
     return (iter[i:i + size] for i in range(0, len(iter), size))
 
 
