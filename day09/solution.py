@@ -97,36 +97,34 @@ def follow(head, tail):
         return parallel_add(tail, vector)
 
 
-def part1(moves):
+def part1(steps):
     head = (0, 0)
     tails = [(0, 0)]
 
-    for move in moves:
-        for step in move.to_steps():
-            head = parallel_add(head, step)
+    for step in steps:
+        head = parallel_add(head, step)
 
-            if tail := follow(head, tails[-1]):
-                tails.append(tail)
+        if tail := follow(head, tails[-1]):
+            tails.append(tail)
 
     return len(set(tails))
 
 
-def part2(moves):
+def part2(steps):
     knots = [(0, 0)] * 10
     tails = []
 
-    for move in moves:
-        for step in move.to_steps():
-            knots[0] = parallel_add(knots[0], step)
-            
-            for i in range(1, len(knots)):
-                if next_position := follow(knots[i - 1], knots[i]):
-                    knots[i] = next_position
-                else:
-                    # If a knot doesn't move none of the following will either
-                    break
+    for step in steps:
+        knots[0] = parallel_add(knots[0], step)
 
-            tails.append(knots[-1])
+        for i in range(1, len(knots)):
+            if next_position := follow(knots[i - 1], knots[i]):
+                knots[i] = next_position
+            else:
+                # If a knot doesn't move none of the following will either
+                break
+
+        tails.append(knots[-1])
 
     return len(set(tails))
 
@@ -136,9 +134,10 @@ def main():
         contents = fh.readlines()
 
     moves = [Movement.from_string(line.strip()) for line in contents]
+    steps = [s for m in moves for s in m.to_steps()]
 
-    print("Part 1: ", part1(moves))
-    print("Part 2: ", part2(moves))
+    print("Part 1: ", part1(steps))
+    print("Part 2: ", part2(steps))
 
 
 if __name__ == "__main__":
