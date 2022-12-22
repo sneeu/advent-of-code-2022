@@ -11,7 +11,6 @@ struct Coord {
 
 struct Sensor {
     location: Coord,
-    beacon: Coord,
     reach: i32,
 }
 
@@ -28,17 +27,9 @@ struct SimpleRange {
 }
 
 impl SimpleRange {
-    fn new(start: i32, end: i32) -> Self {
-        SimpleRange { start, end }
-    }
-
     fn width(&self) -> i32 {
         self.end - self.start
     }
-}
-
-fn point_within(c: &Coord, s: &Sensor) -> bool {
-    c.distance(&s.location) <= s.reach
 }
 
 fn horizontal_intersection_coord(y: i32, s: &Sensor) -> Option<Coord> {
@@ -66,7 +57,7 @@ fn merge_ranges(left: &SimpleRange, right: &SimpleRange) -> Option<SimpleRange> 
     if left.start > right.start {
         panic!("left and right must be ordered by start");
     }
-    if right.start < left.end {
+    if right.start <= left.end {
         Some(SimpleRange {
             start: left.start,
             end: right.end.max(left.end),
@@ -77,14 +68,12 @@ fn merge_ranges(left: &SimpleRange, right: &SimpleRange) -> Option<SimpleRange> 
 }
 
 fn merge_ranges_iter(ranges: Vec<SimpleRange>) -> Vec<SimpleRange> {
-    let mut sorted_ranges = ranges.clone();
+    let mut sorted_ranges = ranges;
     sorted_ranges.sort_by(|a, b| a.start.cmp(&b.start));
 
     sorted_ranges.iter().fold(Vec::new(), |accum, item| {
         let mut r = accum.clone();
         let left = accum.last();
-
-        dbg!(&accum, item);
 
         if left.is_none() {
             r.push(*item);
@@ -126,7 +115,6 @@ fn parse_input(lines: &str) -> Vec<Sensor> {
 
         sensors.push(Sensor {
             location: s,
-            beacon: b,
             reach: d,
         });
     }
@@ -142,10 +130,25 @@ fn part1(sensors: &[Sensor], y: i32) -> i32 {
     ranges.iter().map(|r| r.width()).sum()
 }
 
+fn part2(sensors: &[Sensor]) -> i64 {
+    for y in 0..=4_000_000 {
+        let intersections = sensors.iter().filter_map(|s| horizontal_intersection(y, s));
+
+        let ranges = merge_ranges_iter(intersections.collect());
+
+        if ranges.len() > 1 {
+            return (ranges[0].end as i64 + 1) * 4_000_000 + y as i64;
+        }
+    }
+
+    0
+}
+
 fn main() {
     let sensors = parse_input(INPUT);
 
     println!("Part 1: {}", part1(&sensors, Y_INTERSECT));
+    println!("Part 2: {}", part2(&sensors));
 }
 
 #[cfg(test)]
@@ -153,26 +156,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_point_within() {
-        let c = Coord { x: 10, y: 10 };
-        let s = Sensor {
-            location: Coord { x: 5, y: 5 },
-            beacon: Coord { x: 15, y: 15 },
-            reach: 20,
-        };
-        assert!(point_within(&c, &s));
-    }
-
-    #[test]
     fn test_horizontal_intersection_coord() {
         let s = Sensor {
             location: Coord { x: 5, y: 5 },
-            beacon: Coord { x: 15, y: 15 },
             reach: 20,
         };
         let s2 = Sensor {
             location: Coord { x: 5, y: 5 },
-            beacon: Coord { x: 6, y: 6 },
             reach: 2,
         };
 
@@ -187,12 +177,10 @@ mod tests {
     fn test_horizontal_intersection() {
         let s = Sensor {
             location: Coord { x: 5, y: 5 },
-            beacon: Coord { x: 15, y: 15 },
             reach: 20,
         };
         let s2 = Sensor {
             location: Coord { x: 5, y: 5 },
-            beacon: Coord { x: 6, y: 6 },
             reach: 2,
         };
 
@@ -209,15 +197,29 @@ mod tests {
     #[test]
     fn test_merge_ranges() {
         assert_eq!(
-            merge_ranges(&SimpleRange::new(0, 10), &SimpleRange::new(5, 15)).unwrap(),
-            SimpleRange::new(0, 15)
+            merge_ranges(
+                &SimpleRange { start: 0, end: 10 },
+                &SimpleRange { start: 5, end: 15 }
+            )
+            .unwrap(),
+            SimpleRange { start: 0, end: 15 }
         );
         assert_eq!(
-            merge_ranges(&SimpleRange::new(0, 20), &SimpleRange::new(5, 15)).unwrap(),
-            SimpleRange::new(0, 20)
+            merge_ranges(
+                &SimpleRange { start: 0, end: 20 },
+                &SimpleRange { start: 5, end: 15 }
+            )
+            .unwrap(),
+            SimpleRange { start: 0, end: 20 }
         );
         assert_eq!(
-            merge_ranges(&SimpleRange::new(-5, 0), &SimpleRange::new(100, 115)),
+            merge_ranges(
+                &SimpleRange { start: -5, end: 0 },
+                &SimpleRange {
+                    start: 100,
+                    end: 115
+                }
+            ),
             None
         );
     }
@@ -225,23 +227,26 @@ mod tests {
     #[test]
     #[should_panic]
     fn test_merge_ranges_invalid() {
-        merge_ranges(&SimpleRange::new(5, 10), &SimpleRange::new(0, 115));
+        merge_ranges(
+            &SimpleRange { start: 5, end: 10 },
+            &SimpleRange { start: 0, end: 115 },
+        );
     }
 
     #[test]
     fn test_merge_ranges_iter() {
         let ranges = vec![
-            SimpleRange::new(0, 5),
-            SimpleRange::new(4, 10),
-            SimpleRange::new(15, 20),
-            SimpleRange::new(18, 25),
-            SimpleRange::new(30, 40),
+            SimpleRange { start: 0, end: 5 },
+            SimpleRange { start: 4, end: 10 },
+            SimpleRange { start: 15, end: 20 },
+            SimpleRange { start: 18, end: 25 },
+            SimpleRange { start: 30, end: 40 },
         ];
 
         let expected = vec![
-            SimpleRange::new(0, 10),
-            SimpleRange::new(15, 25),
-            SimpleRange::new(30, 40),
+            SimpleRange { start: 0, end: 10 },
+            SimpleRange { start: 15, end: 25 },
+            SimpleRange { start: 30, end: 40 },
         ];
 
         assert_eq!(merge_ranges_iter(ranges), expected);
